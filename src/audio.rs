@@ -44,13 +44,14 @@ pub fn start() -> impl Stream<Item=Vec<u8>, Error=Error> {
     std::thread::spawn(move || {
         let mut active = true;
 
+        let channels = channels() as usize;
         let bps = min(24, bit_depth() as u32);
-        info!("Creating new session. SampleRate={}, bps={}, channels={}.", sample_rate(), bps, channels());
+        info!("Creating new session. SampleRate={}, bps={}, channels={}.", sample_rate(), bps, channels);
 
         let mut encoder = flac::StreamEncoder::create();
         encoder.set_bits_per_sample(bps);
         encoder.set_sample_rate(sample_rate());
-        encoder.set_channels(channels() as u32);
+        encoder.set_channels(channels as u32);
         encoder.set_compression_level(5);
         encoder.set_verify(true);
 
@@ -81,7 +82,7 @@ pub fn start() -> impl Stream<Item=Vec<u8>, Error=Error> {
             match data {
                 cpal::StreamData::Input { buffer: cpal::UnknownTypeInputBuffer::U16(buffer) } => {
                     samples = buffer.len();
-                    debug!("processing {} U16 samples", samples);
+                    trace!("processing {} U16 samples", samples);
                     for sample in buffer.iter() {
                         let sample = cpal::Sample::to_i16(sample);
                         vec.push(sample as i32);
@@ -89,14 +90,14 @@ pub fn start() -> impl Stream<Item=Vec<u8>, Error=Error> {
                 }
                 cpal::StreamData::Input { buffer: cpal::UnknownTypeInputBuffer::I16(buffer) } => {
                     samples = buffer.len();
-                    debug!("processing {} I16 samples", samples);
+                    trace!("processing {} I16 samples", samples);
                     for &sample in buffer.iter() {
                         vec.push(sample as i32);
                     }
                 }
                 cpal::StreamData::Input { buffer: cpal::UnknownTypeInputBuffer::F32(buffer) } => {
                     samples = buffer.len();
-                    debug!("processing {} F32 samples", samples);
+                    trace!("processing {} F32 samples", samples);
                     for &sample in buffer.iter() {
                         let mut int_sample = (sample * 8388608.0f32).round() as i32;
                         int_sample = max(int_sample, -8388608);
@@ -109,7 +110,7 @@ pub fn start() -> impl Stream<Item=Vec<u8>, Error=Error> {
                 }
             }
 
-            encoder.process_interleaved(&vec, samples);
+            encoder.process_interleaved(&vec, samples / channels);
             if !encoder.is_ok() {
                 error!("FLAC Encoder state: {}", encoder.get_state());
                 panic!("FLAC encoder failure")
@@ -125,7 +126,7 @@ fn send(buff: Vec<u8>, tx: &UnboundedSender<Vec<u8>>) -> bool {
     let size = buff.len();
     let successful = tx.unbounded_send(buff).is_ok();
     if successful {
-        debug!("transferred {} bytes", size);
+        trace!("transferred {} bytes", size);
     }
     return successful;
 }
