@@ -16,7 +16,7 @@ const HTTP_STREAM_PATH: &'static str = "/stream.flac";
 
 fn main() {
     if env::var("RUST_LOG").is_err() {
-        env::set_var("RUST_LOG", "info,simple_http_radio=trace");
+        env::set_var("RUST_LOG", "info,simple_http_radio=debug");
     }
     env_logger::init();
 
