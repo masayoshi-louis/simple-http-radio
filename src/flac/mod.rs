@@ -95,7 +95,7 @@ impl StreamEncoder {
 
     #[inline]
     pub fn init_ogg_stream_non_seekable<F>(&mut self, write_cb: &mut F)
-        where F: FnMut(&[u8], usize, usize) -> bool {
+        where F: FnMut(&[u8], usize, usize) -> Result<(), ()> {
         if !self.is_ok() {
             return;
         }
@@ -108,7 +108,7 @@ impl StreamEncoder {
                 None,
                 None,
                 write_cb as *const _ as *mut c_void,
-            ) != 0
+            ) == 0 // 0 means OK
         }
     }
 
@@ -122,6 +122,13 @@ impl StreamEncoder {
         }
     }
 
+    #[inline]
+    pub fn get_state(&self) -> u32 {
+        unsafe {
+            c_api::FLAC__stream_encoder_get_state(self.inner)
+        }
+    }
+
     unsafe
     extern "C"
     fn write_cb<F>(encoder: *const c_api::FLAC__StreamEncoder,
@@ -131,13 +138,13 @@ impl StreamEncoder {
                    current_frame: c_uint,
                    client_data: *mut c_void,
     ) -> c_api::FLAC__StreamEncoderWriteStatus
-        where F: FnMut(&[u8], usize, usize) -> bool {
+        where F: FnMut(&[u8], usize, usize) -> Result<(), ()> {
         let cb = &mut *(client_data as *mut F);
         cb(
             std::slice::from_raw_parts(buffer, bytes),
             samples as usize,
             current_frame as usize,
-        ) as c_api::FLAC__StreamEncoderWriteStatus
+        ).is_err() as c_api::FLAC__StreamEncoderWriteStatus
     }
 }
 
@@ -151,3 +158,5 @@ impl Drop for StreamEncoder {
         }
     }
 }
+
+unsafe impl Send for StreamEncoder {}

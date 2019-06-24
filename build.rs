@@ -18,4 +18,6 @@ fn main() {
     bindings
         .write_to_file("c_api/bindings.rs")
         .expect("Couldn't write bindings!");
+
+    println!("cargo:rustc-link-lib=dylib=FLAC");
 }
